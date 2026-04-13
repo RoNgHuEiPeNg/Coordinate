@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>座標偵測與轉換工具</title>
+<style>
+  :root {
+    --primary: #1a73e8;
+    --primary-dark: #1557b0;
+    --success: #0d9488;
+    --danger: #dc2626;
+    --bg: #f0f4f8;
+    --card: #ffffff;
+    --text: #1e293b;
+    --text-light: #64748b;
+    --border: #e2e8f0;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  /* === Layout === */
+  .app-header {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    flex-shrink: 0;
+  }
+  .app-header h1 {
+    font-size: 1.2rem;
+    color: var(--primary);
+    white-space: nowrap;
+  }
+  .app-header .subtitle {
+    color: var(--text-light);
+    font-size: 0.78rem;
+  }
+  .app-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  /* === Sidebar === */
+  .sidebar {
+    width: 220px;
+    min-width: 220px;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 12px 0;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .sidebar .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    border: none;
+    background: transparent;
+    color: var(--text-light);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+    width: 100%;
+    border-left: 3px solid transparent;
+  }
+  .sidebar .nav-item:hover {
+    background: #f1f5f9;
+    color: var(--text);
+  }
+  .sidebar .nav-item.active {
+    background: #eff6ff;
+    color: var(--primary);
+    border-left-color: var(--primary);
+  }
+  .sidebar .nav-item .nav-icon {
+    font-size: 1.1rem;
+    width: 22px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .sidebar .nav-label {
+    line-height: 1.3;
+  }
+  /* === Main content === */
+  .main-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 28px;
+  }
+  /* === Mobile hamburger === */
+  .menu-toggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    color: var(--text);
+    padding: 4px;
+  }
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border: 1px solid var(--border);
+  }
+  .card-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card-title .icon {
+    font-size: 1.2rem;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-primary {
+    background: var(--primary);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-success {
+    background: var(--success);
+    color: #fff;
+  }
+  .btn-success:hover { opacity: 0.9; }
+  .btn-danger {
+    background: var(--danger);
+    color: #fff;
+  }
+  .btn-danger:hover { opacity: 0.9; }
+  .btn-outline {
+    background: transparent;
+    color: var(--primary);
+    border: 2px solid var(--primary);
+  }
+  .btn-outline:hover { background: var(--primary); color: #fff; }
+  .btn-block { width: 100%; }
+  .coord-display {
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 8px 0;
+  }
+  .coord-label {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  .coord-value {
+    font-family: 'SF Mono', 'Consolas', 'Courier New', monospace;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    word-break: break-all;
+  }
+  .coord-value.placeholder {
+    color: #cbd5e1;
+    font-weight: 400;
+  }
+  .row {
+    display: flex;
+    gap: 10px;
+  }
+  .row > * { flex: 1; }
+  .form-group {
+    margin-bottom: 12px;
+  }
+  .form-group label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-light);
+    margin-bottom: 4px;
+  }
+  .form-group input, .form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: 'SF Mono', 'Consolas', monospace;
+    transition: border-color 0.2s;
+  }
+  .form-group input:focus, .form-group select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(26,115,232,0.1);
+  }
+  .comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 0.85rem;
+  }
+  .comparison-table th {
+    background: #f1f5f9;
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-light);
+    border-bottom: 2px solid var(--border);
+  }
+  .comparison-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 0.82rem;
+  }
+  .comparison-table tr:last-child td {
+    border-bottom: none;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-green { background: #d1fae5; color: #065f46; }
+  .badge-orange { background: #fed7aa; color: #9a3412; }
+  .status-msg {
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    margin-top: 10px;
+    display: none;
+  }
+  .status-msg.info { background: #dbeafe; color: #1e40af; display: block; }
+  .status-msg.error { background: #fee2e2; color: #991b1b; display: block; }
+  .status-msg.success { background: #d1fae5; color: #065f46; display: block; }
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 16px 0;
+  }
+  .point-list {
+    max-height: 220px;
+    overflow-y: auto;
+    margin: 10px 0;
+  }
+  .point-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    font-size: 0.82rem;
+  }
+  .point-item .name {
+    font-weight: 600;
+    min-width: 60px;
+  }
+  .point-item .coords {
+    font-family: 'SF Mono', 'Consolas', monospace;
+    font-size: 0.78rem;
+    color: var(--text-light);
+    flex: 1;
+    margin: 0 10px;
+  }
+  .point-item .actions {
+    display: flex;
+    gap: 4px;
+  }
+  .btn-sm {
+    padding: 4px 8px;
+    font-size: 0.72rem;
+    border-radius: 6px;
+  }
+  .result-box {
+    background: linear-gradient(135deg, #dbeafe, #ede9fe);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    margin-top: 12px;
+  }
+  .result-box .label {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    margin-bottom: 4px;
+  }
+  .result-box .value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--primary-dark);
+  }
+  .accuracy-note {
+    font-size: 0.72rem;
+    color: var(--text-light);
+    margin-top: 6px;
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .coord-type-selector {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .coord-type-btn {
+    flex: 1;
+    min-width: 140px;
+    padding: 10px 8px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: #f8fafc;
+    color: var(--text-light);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .coord-type-btn:hover { border-color: var(--primary); color: var(--primary); }
+  .coord-type-btn.active {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 2px 6px rgba(26,115,232,0.25);
+  }
+  .btn-map {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1.5px solid var(--primary);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--primary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .btn-map:hover { background: var(--primary); color: #fff; }
+  .btn-map.active { background: var(--primary); color: #fff; }
+  .btn-map.baidu { border-color: #3385ff; color: #3385ff; }
+  .btn-map.baidu:hover, .btn-map.baidu.active { background: #3385ff; color: #fff; }
+  .map-container {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.4s ease, opacity 0.3s ease, margin 0.3s ease;
+    margin-top: 0;
+    border-radius: 8px;
+  }
+  .map-container.open {
+    max-height: 400px;
+    opacity: 1;
+    margin-top: 10px;
+  }
+  .map-container iframe {
+    width: 100%;
+    height: 350px;
+    border: none;
+    border-radius: 8px;
+  }
+  @media (max-width: 768px) {
+    .menu-toggle { display: block; }
+    .sidebar {
+      position: fixed;
+      top: 0;
+      left: -260px;
+      width: 250px;
+      min-width: 250px;
+      height: 100vh;
+      z-index: 1000;
+      box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+      transition: left 0.3s ease;
+    }
+    .sidebar.open { left: 0; }
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.3);
+      z-index: 999;
+    }
+    .sidebar-overlay.open { display: block; }
+    .main-content { padding: 16px; }
+    .row { flex-direction: column; gap: 8px; }
+    .coord-type-selector { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <button class="menu-toggle" onclick="toggleSidebar()">&#9776;</button>
+  <h1>座標偵測與轉換工具</h1>
+  <span class="subtitle">離線版 — WGS84 / GCJ02 / BD09</span>
+</div>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<div class="app-body">
+<nav class="sidebar" id="sidebar">
+  <button class="nav-item active" onclick="switchTab('detect', this)">
+    <span class="nav-icon">&#128205;</span><span class="nav-label">位置偵測</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('mapinput', this)">
+    <span class="nav-icon">&#128506;</span><span class="nav-label">輸入位置顯示地圖</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('convert', this)">
+    <span class="nav-icon">&#128260;</span><span class="nav-label">座標轉換</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('distance', this)">
+    <span class="nav-icon">&#128207;</span><span class="nav-label">距離計算</span>
+  </button>
+  <button class="nav-item" onclick="switchTab('newbd09', this)">
+    <span class="nav-icon">&#128300;</span><span class="nav-label">BD09 新邏輯</span>
+  </button>
+</nav>
+
+<div class="main-content">
+
+<!-- ==================== TAB 1: 位置偵測 ==================== -->
+<div id="tab-detect" class="tab-content active">
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128205;</span> 偵測目前位置</div>
+    <button class="btn btn-primary btn-block" onclick="detectLocation()">
+      &#128225; 開始偵測我的位置
+    </button>
+    <div id="detect-status" class="status-msg" style="margin-top:10px;"></div>
+
+    <div id="detect-results" style="display:none; margin-top:14px;">
+      <div class="coord-display">
+        <div class="coord-label">WGS84 (GPS 原始座標)
+          <button class="btn-map" onclick="toggleMap('google-map', this)">&#127758; 顯示 Google 地圖</button>
+        </div>
+        <div class="row">
+          <div><span style="color:var(--text-light);font-size:0.75rem;">緯度</span><br><span id="wgs-lat" class="coord-value">—</span></div>
+          <div><span style="color:var(--text-light);font-size:0.75rem;">經度</span><br><span id="wgs-lng" class="coord-value">—</span></div>
+        </div>
+        <div id="google-map" class="map-container"></div>
+      </div>
+
+      <div class="coord-display">
+        <div class="coord-label">BD09 (百度座標) — 由 WGS84 轉換
+          <button class="btn-map baidu" onclick="toggleMap('baidu-map-old', this)">&#127758; 顯示百度地圖</button>
+        </div>
+        <div class="row">
+          <div><span style="color:var(--text-light);font-size:0.75rem;">緯度</span><br><span id="bd-lat" class="coord-value">—</span></div>
+          <div><span style="color:var(--text-light);font-size:0.75rem;">經度</span><br><span id="bd-lng" class="coord-value">—</span></div>
+        </div>
+        <div id="baidu-map-old" class="map-container"></div>
+      </div>
+
+      <div class="coord-display">
+        <div class="coord-label">GCJ02 (中間座標，供參考)</div>
+        <div class="row">
+          <div><span style="color:var(--text-light);font-size:0.75rem;">緯度</span><br><span id="gcj-lat" class="coord-value">—</span></div>
+          <div><span style="color:var(--text-light);font-size:0.75rem;">經度</span><br><span id="gcj-lng" class="coord-value">—</span></div>
+        </div>
+      </div>
+
+      <div class="coord-display" style="border-left: 3px solid var(--success);">
+        <div class="coord-label">BD09 新邏輯 (Java版) — 由 WGS84 轉換
+          <button class="btn-map baidu" onclick="toggleMap('baidu-map-new', this)">&#127758; 顯示百度地圖</button>
+        </div>
+        <div class="row">
+          <div><span style="color:var(--text-light);font-size:0.75rem;">緯度</span><br><span id="bd-new-lat" class="coord-value">—</span></div>
+          <div><span style="color:var(--text-light);font-size:0.75rem;">經度</span><br><span id="bd-new-lng" class="coord-value">—</span></div>
+        </div>
+        <div id="baidu-map-new" class="map-container"></div>
+      </div>
+
+      <div class="coord-display" style="border-left: 3px solid var(--success);">
+        <div class="coord-label">GCJ02 新邏輯 (Java版，供參考)</div>
+        <div class="row">
+          <div><span style="color:var(--text-light);font-size:0.75rem;">緯度</span><br><span id="gcj-new-lat" class="coord-value">—</span></div>
+          <div><span style="color:var(--text-light);font-size:0.75rem;">經度</span><br><span id="gcj-new-lng" class="coord-value">—</span></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="card-title" style="font-size:0.9rem;"><span class="icon">&#128270;</span> 新舊邏輯座標對比驗證</div>
+      <p style="font-size:0.78rem; color:var(--text-light); margin-bottom:8px;">
+        WGS84 → GCJ02 → BD09 轉換鏈驗證（含新舊邏輯比較）
+      </p>
+      <table class="comparison-table">
+        <thead>
+          <tr><th>座標系</th><th>緯度</th><th>經度</th></tr>
+        </thead>
+        <tbody id="comparison-body"></tbody>
+      </table>
+      <p class="accuracy-note" id="accuracy-info"></p>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TAB 2: 座標轉換 ==================== -->
+<div id="tab-convert" class="tab-content">
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128260;</span> 座標轉換</div>
+    <div class="form-group">
+      <label>轉換方向</label>
+      <select id="convert-mode" onchange="updateConvertLabels()">
+        <option value="wgs2bd">WGS84 → BD09</option>
+        <option value="bd2wgs">BD09 → WGS84</option>
+        <option value="wgs2gcj">WGS84 → GCJ02</option>
+        <option value="gcj2wgs">GCJ02 → WGS84</option>
+        <option value="gcj2bd">GCJ02 → BD09</option>
+        <option value="bd2gcj">BD09 → GCJ02</option>
+      </select>
+    </div>
+    <div class="row">
+      <div class="form-group">
+        <label id="convert-lat-label">輸入緯度</label>
+        <input type="number" step="any" id="convert-lat" placeholder="例: 39.908823">
+      </div>
+      <div class="form-group">
+        <label id="convert-lng-label">輸入經度</label>
+        <input type="number" step="any" id="convert-lng" placeholder="例: 116.397470">
+      </div>
+    </div>
+    <button class="btn btn-success btn-block" onclick="doConvert()">&#9889; 轉換</button>
+
+    <div id="convert-result" style="display:none; margin-top:14px;">
+      <div class="coord-display">
+        <div class="coord-label" id="convert-result-label">原邏輯轉換結果</div>
+        <div class="row">
+          <div><span style="color:var(--text-light);font-size:0.75rem;">緯度</span><br><span id="conv-res-lat" class="coord-value">—</span></div>
+          <div><span style="color:var(--text-light);font-size:0.75rem;">經度</span><br><span id="conv-res-lng" class="coord-value">—</span></div>
+        </div>
+      </div>
+      <div class="coord-display" style="border-left: 3px solid var(--success);">
+        <div class="coord-label" id="convert-result-label-new">新邏輯轉換結果 (Java版)</div>
+        <div class="row">
+          <div><span style="color:var(--text-light);font-size:0.75rem;">緯度</span><br><span id="conv-res-lat-new" class="coord-value">—</span></div>
+          <div><span style="color:var(--text-light);font-size:0.75rem;">經度</span><br><span id="conv-res-lng-new" class="coord-value">—</span></div>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <table class="comparison-table">
+        <thead>
+          <tr><th>邏輯版本</th><th>緯度</th><th>經度</th></tr>
+        </thead>
+        <tbody id="conv-compare-body"></tbody>
+      </table>
+      <div id="conv-compare-diff" class="accuracy-note" style="margin-top:6px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TAB 4: BD09新邏輯區 ==================== -->
+<div id="tab-newbd09" class="tab-content">
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128300;</span> BD09 新邏輯轉換 (Java 版本)</div>
+    <p style="font-size:0.78rem; color:var(--text-light); margin-bottom:12px;">
+      基於 CoordinateTransformUtil Java 版本移植，與原邏輯的差異：<br>
+      1. 參數順序為 (lng, lat)&emsp;2. out_of_china 邊界不同&emsp;3. GCJ02→WGS84 採用單步反算
+    </p>
+    <div class="form-group">
+      <label>轉換方向</label>
+      <select id="new-convert-mode">
+        <option value="wgs2bd">WGS84 → BD09</option>
+        <option value="bd2wgs">BD09 → WGS84</option>
+        <option value="wgs2gcj">WGS84 → GCJ02</option>
+        <option value="gcj2wgs">GCJ02 → WGS84</option>
+        <option value="gcj2bd">GCJ02 → BD09</option>
+        <option value="bd2gcj">BD09 → GCJ02</option>
+      </select>
+    </div>
+    <div class="row">
+      <div class="form-group">
+        <label>緯度 (lat)</label>
+        <input type="number" step="any" id="new-input-lat" placeholder="例: 39.908823">
+      </div>
+      <div class="form-group">
+        <label>經度 (lng)</label>
+        <input type="number" step="any" id="new-input-lng" placeholder="例: 116.397470">
+      </div>
+    </div>
+    <button class="btn btn-success btn-block" onclick="doNewConvert()">&#9889; 新邏輯轉換</button>
+
+    <div id="new-convert-result" style="display:none; margin-top:14px;">
+      <div class="coord-display">
+        <div class="coord-label" id="new-result-label">新邏輯轉換結果</div>
+        <div class="row">
+          <div><span style="color:var(--text-light);font-size:0.75rem;">緯度</span><br><span id="new-res-lat" class="coord-value">—</span></div>
+          <div><span style="color:var(--text-light);font-size:0.75rem;">經度</span><br><span id="new-res-lng" class="coord-value">—</span></div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="card-title" style="font-size:0.9rem;"><span class="icon">&#128270;</span> 新舊邏輯對比</div>
+      <table class="comparison-table">
+        <thead>
+          <tr><th>邏輯版本</th><th>緯度 (lat)</th><th>經度 (lng)</th></tr>
+        </thead>
+        <tbody id="new-compare-body"></tbody>
+      </table>
+      <div id="new-compare-diff" class="accuracy-note" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128209;</span> 新舊邏輯差異說明</div>
+    <table class="comparison-table" style="font-size:0.78rem;">
+      <thead><tr><th>項目</th><th>原邏輯 (本站)</th><th>新邏輯 (Java 版)</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>out_of_china 邊界</td>
+          <td>lng: 73.66~135.05<br>lat: 3.86~53.55</td>
+          <td>lng: 72.004~137.8347<br>lat: 0.8293~55.8271</td>
+        </tr>
+        <tr>
+          <td>GCJ02→WGS84</td>
+          <td>迭代法 (10 次迭代)<br>精度更高</td>
+          <td>單步反算法<br>(lng*2-mglng, lat*2-mglat)</td>
+        </tr>
+        <tr>
+          <td>其餘轉換公式</td>
+          <td colspan="2" style="text-align:center;">相同 (transformlat / transformlng / gcj02tobd09 / bd09togcj02)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== TAB 3: 距離計算 ==================== -->
+<div id="tab-distance" class="tab-content">
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128204;</span> 座標點管理</div>
+    <div class="row">
+      <div class="form-group">
+        <label>點名稱</label>
+        <input type="text" id="pt-name" placeholder="例: 天安門">
+      </div>
+      <div class="form-group">
+        <label>座標系</label>
+        <select id="pt-type">
+          <option value="wgs84">WGS84</option>
+          <option value="bd09">BD09</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="form-group">
+        <label>緯度</label>
+        <input type="number" step="any" id="pt-lat" placeholder="緯度">
+      </div>
+      <div class="form-group">
+        <label>經度</label>
+        <input type="number" step="any" id="pt-lng" placeholder="經度">
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="addPoint()">&#10133; 新增座標點</button>
+    <button class="btn btn-outline btn-block" style="margin-top:6px;" onclick="addCurrentLocation()">&#128205; 使用目前位置</button>
+
+    <div class="divider"></div>
+    <div class="card-title" style="font-size:0.9rem;">已儲存的座標點</div>
+    <div id="point-list" class="point-list">
+      <p style="color:var(--text-light); font-size:0.82rem; text-align:center; padding:16px;">尚未新增任何座標點</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128207;</span> 距離計算</div>
+    <div class="row">
+      <div class="form-group">
+        <label>起點</label>
+        <select id="dist-from"><option value="">請先新增座標點</option></select>
+      </div>
+      <div class="form-group">
+        <label>終點</label>
+        <select id="dist-to"><option value="">請先新增座標點</option></select>
+      </div>
+    </div>
+    <button class="btn btn-success btn-block" onclick="calcDistance()">&#128207; 計算距離</button>
+
+    <div id="dist-result" style="display:none;">
+      <div class="result-box">
+        <div class="label">兩點距離</div>
+        <div class="value" id="dist-value">—</div>
+      </div>
+      <div id="dist-details" style="margin-top:10px; font-size:0.78rem; color:var(--text-light);"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== TAB 5: 輸入位置顯示地圖 ==================== -->
+<div id="tab-mapinput" class="tab-content">
+  <div class="card">
+    <div class="card-title"><span class="icon">&#128506;</span> 輸入位置顯示地圖</div>
+
+    <div class="form-group">
+      <label>座標類型</label>
+      <div class="coord-type-selector">
+        <button class="coord-type-btn active" data-type="wgs84" onclick="selectCoordType(this)">WGS84 | Google 地圖</button>
+        <button class="coord-type-btn" data-type="bd09old" onclick="selectCoordType(this)">BD09 原邏輯 | 百度地圖</button>
+        <button class="coord-type-btn" data-type="bd09new" onclick="selectCoordType(this)">BD09 新邏輯 (Java版) | 百度地圖</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="form-group">
+        <label>緯度 (lat)</label>
+        <input type="number" step="any" id="mapinput-lat" placeholder="例: 39.908823">
+      </div>
+      <div class="form-group">
+        <label>經度 (lng)</label>
+        <input type="number" step="any" id="mapinput-lng" placeholder="例: 116.397470">
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block" onclick="showInputMap()">&#127758; 顯示地圖</button>
+
+    <div id="mapinput-map" class="map-container" style="margin-top:12px;"></div>
+  </div>
+</div>
+
+</div><!-- /.main-content -->
+</div><!-- /.app-body -->
+
+<script>
+// ===============================================
+// 座標轉換核心演算法
+// WGS84 <-> GCJ02 <-> BD09
+// 純離線實現，不依賴任何外部API
+// ===============================================
+
+const PI = Math.PI;
+const X_PI = PI * 3000.0 / 180.0;
+const A = 6378245.0; // 長半軸
+const EE = 0.00669342162296594323; // 偏心率平方
+
+// --- WGS84 → GCJ02 ---
+function wgs84ToGcj02(lat, lng) {
+  if (outOfChina(lat, lng)) return { lat, lng };
+  let dLat = transformLat(lng - 105.0, lat - 35.0);
+  let dLng = transformLng(lng - 105.0, lat - 35.0);
+  const radLat = lat / 180.0 * PI;
+  let magic = Math.sin(radLat);
+  magic = 1 - EE * magic * magic;
+  const sqrtMagic = Math.sqrt(magic);
+  dLat = (dLat * 180.0) / ((A * (1 - EE)) / (magic * sqrtMagic) * PI);
+  dLng = (dLng * 180.0) / (A / sqrtMagic * Math.cos(radLat) * PI);
+  return { lat: lat + dLat, lng: lng + dLng };
+}
+
+// --- GCJ02 → WGS84 (迭代法，高精度) ---
+function gcj02ToWgs84(gcjLat, gcjLng) {
+  if (outOfChina(gcjLat, gcjLng)) return { lat: gcjLat, lng: gcjLng };
+  let wgsLat = gcjLat, wgsLng = gcjLng;
+  for (let i = 0; i < 10; i++) {
+    const g = wgs84ToGcj02(wgsLat, wgsLng);
+    wgsLat += gcjLat - g.lat;
+    wgsLng += gcjLng - g.lng;
+  }
+  return { lat: wgsLat, lng: wgsLng };
+}
+
+// --- GCJ02 → BD09 ---
+function gcj02ToBd09(lat, lng) {
+  const z = Math.sqrt(lng * lng + lat * lat) + 0.00002 * Math.sin(lat * X_PI);
+  const theta = Math.atan2(lat, lng) + 0.000003 * Math.cos(lng * X_PI);
+  return {
+    lng: z * Math.cos(theta) + 0.0065,
+    lat: z * Math.sin(theta) + 0.006
+  };
+}
+
+// --- BD09 → GCJ02 ---
+function bd09ToGcj02(bdLat, bdLng) {
+  const x = bdLng - 0.0065;
+  const y = bdLat - 0.006;
+  const z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * X_PI);
+  const theta = Math.atan2(y, x) - 0.000003 * Math.cos(x * X_PI);
+  return {
+    lng: z * Math.cos(theta),
+    lat: z * Math.sin(theta)
+  };
+}
+
+// --- 組合轉換 ---
+function wgs84ToBd09(lat, lng) {
+  const gcj = wgs84ToGcj02(lat, lng);
+  return gcj02ToBd09(gcj.lat, gcj.lng);
+}
+
+function bd09ToWgs84(lat, lng) {
+  const gcj = bd09ToGcj02(lat, lng);
+  return gcj02ToWgs84(gcj.lat, gcj.lng);
+}
+
+// --- 輔助函數 ---
+function transformLat(x, y) {
+  let ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y +
+    0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+  ret += (20.0 * Math.sin(6.0 * x * PI) + 20.0 * Math.sin(2.0 * x * PI)) * 2.0 / 3.0;
+  ret += (20.0 * Math.sin(y * PI) + 40.0 * Math.sin(y / 3.0 * PI)) * 2.0 / 3.0;
+  ret += (160.0 * Math.sin(y / 12.0 * PI) + 320 * Math.sin(y * PI / 30.0)) * 2.0 / 3.0;
+  return ret;
+}
+
+function transformLng(x, y) {
+  let ret = 300.0 + x + 2.0 * y + 0.1 * x * x +
+    0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+  ret += (20.0 * Math.sin(6.0 * x * PI) + 20.0 * Math.sin(2.0 * x * PI)) * 2.0 / 3.0;
+  ret += (20.0 * Math.sin(x * PI) + 40.0 * Math.sin(x / 3.0 * PI)) * 2.0 / 3.0;
+  ret += (150.0 * Math.sin(x / 12.0 * PI) + 300.0 * Math.sin(x / 30.0 * PI)) * 2.0 / 3.0;
+  return ret;
+}
+
+function outOfChina(lat, lng) {
+  return !(lng > 73.66 && lng < 135.05 && lat > 3.86 && lat < 53.55);
+}
+
+// ===============================================
+// BD09 新邏輯 (Java CoordinateTransformUtil 移植)
+// 參數順序統一為 (lng, lat)，與 Java 原始碼一致
+// ===============================================
+
+const J_x_pi = 3.14159265358979324 * 3000.0 / 180.0;
+const J_pi = 3.1415926535897932384626;
+const J_a = 6378245.0;
+const J_ee = 0.00669342162296594323;
+
+function j_out_of_china(lng, lat) {
+  if (lng < 72.004 || lng > 137.8347) return true;
+  if (lat < 0.8293 || lat > 55.8271) return true;
+  return false;
+}
+
+function j_transformlat(lng, lat) {
+  let ret = -100.0 + 2.0 * lng + 3.0 * lat + 0.2 * lat * lat + 0.1 * lng * lat + 0.2 * Math.sqrt(Math.abs(lng));
+  ret += (20.0 * Math.sin(6.0 * lng * J_pi) + 20.0 * Math.sin(2.0 * lng * J_pi)) * 2.0 / 3.0;
+  ret += (20.0 * Math.sin(lat * J_pi) + 40.0 * Math.sin(lat / 3.0 * J_pi)) * 2.0 / 3.0;
+  ret += (160.0 * Math.sin(lat / 12.0 * J_pi) + 320 * Math.sin(lat * J_pi / 30.0)) * 2.0 / 3.0;
+  return ret;
+}
+
+function j_transformlng(lng, lat) {
+  let ret = 300.0 + lng + 2.0 * lat + 0.1 * lng * lng + 0.1 * lng * lat + 0.1 * Math.sqrt(Math.abs(lng));
+  ret += (20.0 * Math.sin(6.0 * lng * J_pi) + 20.0 * Math.sin(2.0 * lng * J_pi)) * 2.0 / 3.0;
+  ret += (20.0 * Math.sin(lng * J_pi) + 40.0 * Math.sin(lng / 3.0 * J_pi)) * 2.0 / 3.0;
+  ret += (150.0 * Math.sin(lng / 12.0 * J_pi) + 300.0 * Math.sin(lng / 30.0 * J_pi)) * 2.0 / 3.0;
+  return ret;
+}
+
+// WGS84 → GCJ02 (Java版: 參數 lng, lat)
+function j_wgs84togcj02(lng, lat) {
+  if (j_out_of_china(lng, lat)) return { lng, lat };
+  let dlat = j_transformlat(lng - 105.0, lat - 35.0);
+  let dlng = j_transformlng(lng - 105.0, lat - 35.0);
+  const radlat = lat / 180.0 * J_pi;
+  let magic = Math.sin(radlat);
+  magic = 1 - J_ee * magic * magic;
+  const sqrtmagic = Math.sqrt(magic);
+  dlat = (dlat * 180.0) / ((J_a * (1 - J_ee)) / (magic * sqrtmagic) * J_pi);
+  dlng = (dlng * 180.0) / (J_a / sqrtmagic * Math.cos(radlat) * J_pi);
+  return { lng: lng + dlng, lat: lat + dlat };
+}
+
+// GCJ02 → WGS84 (Java版: 單步反算)
+function j_gcj02towgs84(lng, lat) {
+  if (j_out_of_china(lng, lat)) return { lng, lat };
+  let dlat = j_transformlat(lng - 105.0, lat - 35.0);
+  let dlng = j_transformlng(lng - 105.0, lat - 35.0);
+  const radlat = lat / 180.0 * J_pi;
+  let magic = Math.sin(radlat);
+  magic = 1 - J_ee * magic * magic;
+  const sqrtmagic = Math.sqrt(magic);
+  dlat = (dlat * 180.0) / ((J_a * (1 - J_ee)) / (magic * sqrtmagic) * J_pi);
+  dlng = (dlng * 180.0) / (J_a / sqrtmagic * Math.cos(radlat) * J_pi);
+  const mglat = lat + dlat;
+  const mglng = lng + dlng;
+  return { lng: lng * 2 - mglng, lat: lat * 2 - mglat };
+}
+
+// GCJ02 → BD09 (Java版)
+function j_gcj02tobd09(lng, lat) {
+  const z = Math.sqrt(lng * lng + lat * lat) + 0.00002 * Math.sin(lat * J_x_pi);
+  const theta = Math.atan2(lat, lng) + 0.000003 * Math.cos(lng * J_x_pi);
+  return { lng: z * Math.cos(theta) + 0.0065, lat: z * Math.sin(theta) + 0.006 };
+}
+
+// BD09 → GCJ02 (Java版)
+function j_bd09togcj02(bd_lon, bd_lat) {
+  const x = bd_lon - 0.0065;
+  const y = bd_lat - 0.006;
+  const z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * J_x_pi);
+  const theta = Math.atan2(y, x) - 0.000003 * Math.cos(x * J_x_pi);
+  return { lng: z * Math.cos(theta), lat: z * Math.sin(theta) };
+}
+
+// WGS84 → BD09 (Java版組合)
+function j_wgs84tobd09(lng, lat) {
+  const gcj = j_wgs84togcj02(lng, lat);
+  return j_gcj02tobd09(gcj.lng, gcj.lat);
+}
+
+// BD09 → WGS84 (Java版組合)
+function j_bd09towgs84(lng, lat) {
+  const gcj = j_bd09togcj02(lng, lat);
+  return j_gcj02towgs84(gcj.lng, gcj.lat);
+}
+
+// ===============================================
+// 距離計算 (Haversine 公式)
+// 基於 BD09 座標系的兩點距離
+// ===============================================
+const EARTH_RADIUS = 6371000; // 地球平均半徑 (公尺)
+
+function haversineDistance(lat1, lng1, lat2, lng2) {
+  const toRad = (d) => d * PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS * c;
+}
+
+function formatDistance(meters) {
+  if (meters >= 1000) {
+    return (meters / 1000).toFixed(3) + ' 公里';
+  }
+  return meters.toFixed(2) + ' 公尺';
+}
+
+// ===============================================
+// UI 邏輯
+// ===============================================
+
+// --- 輸入位置顯示地圖 ---
+let selectedCoordType = 'wgs84';
+
+function selectCoordType(btn) {
+  document.querySelectorAll('.coord-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedCoordType = btn.dataset.type;
+  // 收合已展開的地圖
+  const container = document.getElementById('mapinput-map');
+  if (container.classList.contains('open')) {
+    container.classList.remove('open');
+    setTimeout(() => { container.innerHTML = ''; }, 400);
+  }
+}
+
+function showInputMap() {
+  const lat = parseFloat(document.getElementById('mapinput-lat').value);
+  const lng = parseFloat(document.getElementById('mapinput-lng').value);
+
+  if (isNaN(lat) || isNaN(lng)) {
+    alert('請輸入有效的經緯度數值');
+    return;
+  }
+
+  const container = document.getElementById('mapinput-map');
+
+  if (selectedCoordType === 'wgs84') {
+    container.innerHTML = `<iframe src="https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed" allowfullscreen loading="lazy"></iframe>`;
+  } else if (selectedCoordType === 'bd09old') {
+    container.innerHTML = `<iframe src="https://api.map.baidu.com/marker?location=${lat},${lng}&title=%E6%89%8B%E5%8B%95%E8%BC%B8%E5%85%A5&content=BD09%E5%8E%9F%E9%82%8F%E8%BC%AF&output=html&coord_type=bd09ll&autoOpen=true" allowfullscreen loading="lazy"></iframe>`;
+  } else if (selectedCoordType === 'bd09new') {
+    container.innerHTML = `<iframe src="https://api.map.baidu.com/marker?location=${lat},${lng}&title=%E6%89%8B%E5%8B%95%E8%BC%B8%E5%85%A5&content=BD09%E6%96%B0%E9%82%8F%E8%BC%AF(Java%E7%89%88)&output=html&coord_type=bd09ll&autoOpen=true" allowfullscreen loading="lazy"></iframe>`;
+  }
+
+  container.classList.add('open');
+}
+
+// --- 地圖展開/收合 ---
+function toggleMap(containerId, btn) {
+  const container = document.getElementById(containerId);
+  const isOpen = container.classList.contains('open');
+
+  if (isOpen) {
+    container.classList.remove('open');
+    btn.classList.remove('active');
+    setTimeout(() => { container.innerHTML = ''; }, 400);
+    return;
+  }
+
+  btn.classList.add('active');
+
+  if (containerId === 'google-map') {
+    const lat = document.getElementById('wgs-lat').textContent;
+    const lng = document.getElementById('wgs-lng').textContent;
+    container.innerHTML = `<iframe src="https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed" allowfullscreen loading="lazy"></iframe>`;
+  } else if (containerId === 'baidu-map-old') {
+    const lat = document.getElementById('bd-lat').textContent;
+    const lng = document.getElementById('bd-lng').textContent;
+    container.innerHTML = `<iframe src="https://api.map.baidu.com/marker?location=${lat},${lng}&title=BD09%E5%8E%9F%E9%82%8F%E8%BC%AF&content=%E7%99%BE%E5%BA%A6%E5%BA%A7%E6%A8%99&output=html&coord_type=bd09ll&autoOpen=true" allowfullscreen loading="lazy"></iframe>`;
+  } else if (containerId === 'baidu-map-new') {
+    const lat = document.getElementById('bd-new-lat').textContent;
+    const lng = document.getElementById('bd-new-lng').textContent;
+    container.innerHTML = `<iframe src="https://api.map.baidu.com/marker?location=${lat},${lng}&title=BD09%E6%96%B0%E9%82%8F%E8%BC%AF&content=%E7%99%BE%E5%BA%A6%E5%BA%A7%E6%A8%99(Java%E7%89%88)&output=html&coord_type=bd09ll&autoOpen=true" allowfullscreen loading="lazy"></iframe>`;
+  }
+
+  container.classList.add('open');
+}
+
+// --- 側邊選單切換 ---
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  // 手機版自動收合側邊欄
+  if (window.innerWidth <= 768) {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('open');
+  }
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+
+// --- 位置偵測 ---
+function detectLocation() {
+  const statusEl = document.getElementById('detect-status');
+  const resultsEl = document.getElementById('detect-results');
+
+  statusEl.className = 'status-msg info';
+  statusEl.textContent = '正在偵測位置，請允許瀏覽器取用定位權限...';
+  statusEl.style.display = 'block';
+  resultsEl.style.display = 'none';
+
+  if (!navigator.geolocation) {
+    statusEl.className = 'status-msg error';
+    statusEl.textContent = '您的瀏覽器不支援地理定位功能。';
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const wgsLat = pos.coords.latitude;
+      const wgsLng = pos.coords.longitude;
+      const accuracy = pos.coords.accuracy;
+
+      // WGS84
+      document.getElementById('wgs-lat').textContent = wgsLat.toFixed(14);
+      document.getElementById('wgs-lng').textContent = wgsLng.toFixed(14);
+
+      // === 原邏輯 ===
+      // GCJ02
+      const gcj = wgs84ToGcj02(wgsLat, wgsLng);
+      document.getElementById('gcj-lat').textContent = gcj.lat.toFixed(14);
+      document.getElementById('gcj-lng').textContent = gcj.lng.toFixed(14);
+
+      // BD09
+      const bd = wgs84ToBd09(wgsLat, wgsLng);
+      document.getElementById('bd-lat').textContent = bd.lat.toFixed(14);
+      document.getElementById('bd-lng').textContent = bd.lng.toFixed(14);
+
+      // 驗證：BD09 反轉回 WGS84
+      const wgsBack = bd09ToWgs84(bd.lat, bd.lng);
+      const diff = haversineDistance(wgsLat, wgsLng, wgsBack.lat, wgsBack.lng);
+
+      // === 新邏輯 (Java版) ===
+      const gcjNew = j_wgs84togcj02(wgsLng, wgsLat);
+      document.getElementById('gcj-new-lat').textContent = gcjNew.lat.toFixed(14);
+      document.getElementById('gcj-new-lng').textContent = gcjNew.lng.toFixed(14);
+
+      const bdNew = j_wgs84tobd09(wgsLng, wgsLat);
+      document.getElementById('bd-new-lat').textContent = bdNew.lat.toFixed(14);
+      document.getElementById('bd-new-lng').textContent = bdNew.lng.toFixed(14);
+
+      const wgsBackNew = j_bd09towgs84(bdNew.lng, bdNew.lat);
+      const diffNew = haversineDistance(wgsLat, wgsLng, wgsBackNew.lat, wgsBackNew.lng);
+
+      // 新舊 BD09 差異
+      const bdDiff = haversineDistance(bd.lat, bd.lng, bdNew.lat, bdNew.lng);
+
+      // 對比表格
+      const tbody = document.getElementById('comparison-body');
+      tbody.innerHTML = `
+        <tr>
+          <td><span class="badge badge-blue">WGS84 原始</span></td>
+          <td>${wgsLat.toFixed(14)}</td>
+          <td>${wgsLng.toFixed(14)}</td>
+        </tr>
+        <tr style="border-bottom:2px solid var(--border);">
+          <td colspan="3" style="font-size:0.72rem;color:var(--text-light);padding:4px 10px;">▼ 原邏輯</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-orange">GCJ02 原邏輯</span></td>
+          <td>${gcj.lat.toFixed(14)}</td>
+          <td>${gcj.lng.toFixed(14)}</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-green">BD09 原邏輯</span></td>
+          <td>${bd.lat.toFixed(14)}</td>
+          <td>${bd.lng.toFixed(14)}</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-blue">WGS84 反轉(原)</span></td>
+          <td>${wgsBack.lat.toFixed(14)}</td>
+          <td>${wgsBack.lng.toFixed(14)}</td>
+        </tr>
+        <tr style="border-bottom:2px solid var(--border);">
+          <td colspan="3" style="font-size:0.72rem;color:var(--success);padding:4px 10px;">▼ 新邏輯 (Java版)</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-orange">GCJ02 新邏輯</span></td>
+          <td>${gcjNew.lat.toFixed(14)}</td>
+          <td>${gcjNew.lng.toFixed(14)}</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-green">BD09 新邏輯</span></td>
+          <td>${bdNew.lat.toFixed(14)}</td>
+          <td>${bdNew.lng.toFixed(14)}</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-blue">WGS84 反轉(新)</span></td>
+          <td>${wgsBackNew.lat.toFixed(14)}</td>
+          <td>${wgsBackNew.lng.toFixed(14)}</td>
+        </tr>
+        <tr style="background:#fffbeb;">
+          <td><span class="badge badge-orange">BD09 新舊差異</span></td>
+          <td colspan="2">${bdDiff.toFixed(4)} 公尺</td>
+        </tr>
+      `;
+
+      document.getElementById('accuracy-info').textContent =
+        `GPS 精度: ±${accuracy.toFixed(1)}m | 原邏輯往返誤差: ${diff.toFixed(4)}m | 新邏輯往返誤差: ${diffNew.toFixed(4)}m`;
+
+      statusEl.className = 'status-msg success';
+      statusEl.textContent = '位置偵測成功！';
+      resultsEl.style.display = 'block';
+
+      // 儲存最新位置
+      window._lastDetectedWgs = { lat: wgsLat, lng: wgsLng };
+    },
+    (err) => {
+      statusEl.className = 'status-msg error';
+      const msgs = {
+        1: '使用者拒絕了定位權限。',
+        2: '無法取得位置資訊。',
+        3: '定位超時，請重試。'
+      };
+      statusEl.textContent = msgs[err.code] || '定位失敗: ' + err.message;
+    },
+    { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+  );
+}
+
+// --- BD09 新邏輯轉換 UI ---
+function doNewConvert() {
+  const mode = document.getElementById('new-convert-mode').value;
+  const lat = parseFloat(document.getElementById('new-input-lat').value);
+  const lng = parseFloat(document.getElementById('new-input-lng').value);
+
+  if (isNaN(lat) || isNaN(lng)) {
+    alert('請輸入有效的經緯度數值');
+    return;
+  }
+
+  // 新邏輯 (Java版，參數順序 lng, lat)
+  let newResult;
+  const dstMap = {
+    'wgs2bd': 'BD09', 'bd2wgs': 'WGS84',
+    'wgs2gcj': 'GCJ02', 'gcj2wgs': 'WGS84',
+    'gcj2bd': 'BD09', 'bd2gcj': 'GCJ02'
+  };
+
+  switch (mode) {
+    case 'wgs2bd':  newResult = j_wgs84tobd09(lng, lat); break;
+    case 'bd2wgs':  newResult = j_bd09towgs84(lng, lat); break;
+    case 'wgs2gcj': newResult = j_wgs84togcj02(lng, lat); break;
+    case 'gcj2wgs': newResult = j_gcj02towgs84(lng, lat); break;
+    case 'gcj2bd':  newResult = j_gcj02tobd09(lng, lat); break;
+    case 'bd2gcj':  newResult = j_bd09togcj02(lng, lat); break;
+  }
+
+  // 原邏輯 (參數順序 lat, lng)
+  let oldResult;
+  switch (mode) {
+    case 'wgs2bd':  oldResult = wgs84ToBd09(lat, lng); break;
+    case 'bd2wgs':  oldResult = bd09ToWgs84(lat, lng); break;
+    case 'wgs2gcj': oldResult = wgs84ToGcj02(lat, lng); break;
+    case 'gcj2wgs': oldResult = gcj02ToWgs84(lat, lng); break;
+    case 'gcj2bd':  oldResult = gcj02ToBd09(lat, lng); break;
+    case 'bd2gcj':  oldResult = bd09ToGcj02(lat, lng); break;
+  }
+
+  // 顯示新邏輯結果
+  document.getElementById('new-result-label').textContent = `新邏輯轉換結果 (${dstMap[mode]})`;
+  document.getElementById('new-res-lat').textContent = newResult.lat.toFixed(14);
+  document.getElementById('new-res-lng').textContent = newResult.lng.toFixed(14);
+
+  // 對比表格
+  const diffDist = haversineDistance(newResult.lat, newResult.lng, oldResult.lat, oldResult.lng);
+  document.getElementById('new-compare-body').innerHTML = `
+    <tr>
+      <td><span class="badge badge-green">新邏輯 (Java)</span></td>
+      <td>${newResult.lat.toFixed(14)}</td>
+      <td>${newResult.lng.toFixed(14)}</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-blue">原邏輯 (本站)</span></td>
+      <td>${oldResult.lat.toFixed(14)}</td>
+      <td>${oldResult.lng.toFixed(14)}</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-orange">差異</span></td>
+      <td>${Math.abs(newResult.lat - oldResult.lat).toFixed(14)}</td>
+      <td>${Math.abs(newResult.lng - oldResult.lng).toFixed(14)}</td>
+    </tr>
+  `;
+  document.getElementById('new-compare-diff').textContent =
+    `兩套邏輯結果距離差異: ${diffDist.toFixed(4)} 公尺`;
+
+  document.getElementById('new-convert-result').style.display = 'block';
+}
+
+// --- 座標轉換 ---
+function updateConvertLabels() {
+  const mode = document.getElementById('convert-mode').value;
+  const srcMap = {
+    'wgs2bd': 'WGS84', 'bd2wgs': 'BD09',
+    'wgs2gcj': 'WGS84', 'gcj2wgs': 'GCJ02',
+    'gcj2bd': 'GCJ02', 'bd2gcj': 'BD09'
+  };
+  const src = srcMap[mode];
+  document.getElementById('convert-lat-label').textContent = `${src} 緯度`;
+  document.getElementById('convert-lng-label').textContent = `${src} 經度`;
+}
+
+function doConvert() {
+  const mode = document.getElementById('convert-mode').value;
+  const lat = parseFloat(document.getElementById('convert-lat').value);
+  const lng = parseFloat(document.getElementById('convert-lng').value);
+
+  if (isNaN(lat) || isNaN(lng)) {
+    alert('請輸入有效的經緯度數值');
+    return;
+  }
+
+  let result;
+  const dstMap = {
+    'wgs2bd': 'BD09', 'bd2wgs': 'WGS84',
+    'wgs2gcj': 'GCJ02', 'gcj2wgs': 'WGS84',
+    'gcj2bd': 'BD09', 'bd2gcj': 'GCJ02'
+  };
+
+  switch (mode) {
+    case 'wgs2bd': result = wgs84ToBd09(lat, lng); break;
+    case 'bd2wgs': result = bd09ToWgs84(lat, lng); break;
+    case 'wgs2gcj': result = wgs84ToGcj02(lat, lng); break;
+    case 'gcj2wgs': result = gcj02ToWgs84(lat, lng); break;
+    case 'gcj2bd': result = gcj02ToBd09(lat, lng); break;
+    case 'bd2gcj': result = bd09ToGcj02(lat, lng); break;
+  }
+
+  // 新邏輯 (Java版，參數順序 lng, lat)
+  let resultNew;
+  switch (mode) {
+    case 'wgs2bd':  resultNew = j_wgs84tobd09(lng, lat); break;
+    case 'bd2wgs':  resultNew = j_bd09towgs84(lng, lat); break;
+    case 'wgs2gcj': resultNew = j_wgs84togcj02(lng, lat); break;
+    case 'gcj2wgs': resultNew = j_gcj02towgs84(lng, lat); break;
+    case 'gcj2bd':  resultNew = j_gcj02tobd09(lng, lat); break;
+    case 'bd2gcj':  resultNew = j_bd09togcj02(lng, lat); break;
+  }
+
+  // 原邏輯結果
+  document.getElementById('convert-result-label').textContent = `原邏輯結果 (${dstMap[mode]})`;
+  document.getElementById('conv-res-lat').textContent = result.lat.toFixed(14);
+  document.getElementById('conv-res-lng').textContent = result.lng.toFixed(14);
+
+  // 新邏輯結果
+  document.getElementById('convert-result-label-new').textContent = `新邏輯結果 (${dstMap[mode]}) — Java版`;
+  document.getElementById('conv-res-lat-new').textContent = resultNew.lat.toFixed(14);
+  document.getElementById('conv-res-lng-new').textContent = resultNew.lng.toFixed(14);
+
+  // 對比
+  const convDiff = haversineDistance(result.lat, result.lng, resultNew.lat, resultNew.lng);
+  document.getElementById('conv-compare-body').innerHTML = `
+    <tr>
+      <td><span class="badge badge-blue">原邏輯</span></td>
+      <td>${result.lat.toFixed(14)}</td>
+      <td>${result.lng.toFixed(14)}</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-green">新邏輯 (Java)</span></td>
+      <td>${resultNew.lat.toFixed(14)}</td>
+      <td>${resultNew.lng.toFixed(14)}</td>
+    </tr>
+    <tr>
+      <td><span class="badge badge-orange">差異</span></td>
+      <td>${Math.abs(result.lat - resultNew.lat).toFixed(14)}</td>
+      <td>${Math.abs(result.lng - resultNew.lng).toFixed(14)}</td>
+    </tr>
+  `;
+  document.getElementById('conv-compare-diff').textContent =
+    `新舊邏輯結果距離差異: ${convDiff.toFixed(4)} 公尺`;
+
+  document.getElementById('convert-result').style.display = 'block';
+}
+
+// --- 座標點管理 ---
+let savedPoints = [];
+
+function addPoint() {
+  const name = document.getElementById('pt-name').value.trim();
+  const type = document.getElementById('pt-type').value;
+  const lat = parseFloat(document.getElementById('pt-lat').value);
+  const lng = parseFloat(document.getElementById('pt-lng').value);
+
+  if (!name) { alert('請輸入點名稱'); return; }
+  if (isNaN(lat) || isNaN(lng)) { alert('請輸入有效的經緯度'); return; }
+
+  // 轉換為 BD09（統一用 BD09 計算距離）
+  let bd09, bd09New;
+  if (type === 'wgs84') {
+    bd09 = wgs84ToBd09(lat, lng);
+    bd09New = j_wgs84tobd09(lng, lat);  // 新邏輯 (lng, lat)
+  } else {
+    bd09 = { lat, lng };
+    bd09New = { lat, lng };
+  }
+
+  // 同時保存原始座標與 BD09
+  let wgs84;
+  if (type === 'wgs84') {
+    wgs84 = { lat, lng };
+  } else {
+    wgs84 = bd09ToWgs84(lat, lng);
+  }
+
+  savedPoints.push({
+    name,
+    inputType: type,
+    original: { lat, lng },
+    wgs84,
+    bd09,
+    bd09New
+  });
+
+  // 清除輸入
+  document.getElementById('pt-name').value = '';
+  document.getElementById('pt-lat').value = '';
+  document.getElementById('pt-lng').value = '';
+
+  renderPoints();
+  updateDistanceSelects();
+}
+
+function addCurrentLocation() {
+  if (!window._lastDetectedWgs) {
+    alert('請先在「位置偵測」分頁中偵測您的位置');
+    return;
+  }
+  document.getElementById('pt-type').value = 'wgs84';
+  document.getElementById('pt-lat').value = window._lastDetectedWgs.lat.toFixed(14);
+  document.getElementById('pt-lng').value = window._lastDetectedWgs.lng.toFixed(14);
+  if (!document.getElementById('pt-name').value) {
+    document.getElementById('pt-name').value = '我的位置';
+  }
+}
+
+function removePoint(idx) {
+  savedPoints.splice(idx, 1);
+  renderPoints();
+  updateDistanceSelects();
+}
+
+function renderPoints() {
+  const list = document.getElementById('point-list');
+  if (savedPoints.length === 0) {
+    list.innerHTML = '<p style="color:var(--text-light); font-size:0.82rem; text-align:center; padding:16px;">尚未新增任何座標點</p>';
+    return;
+  }
+  list.innerHTML = savedPoints.map((p, i) => `
+    <div class="point-item">
+      <span class="name">${p.name}</span>
+      <span class="coords">
+        WGS84: ${p.wgs84.lat.toFixed(14)}, ${p.wgs84.lng.toFixed(14)}<br>
+        BD09(原): ${p.bd09.lat.toFixed(14)}, ${p.bd09.lng.toFixed(14)}<br>
+        BD09(新): ${p.bd09New.lat.toFixed(14)}, ${p.bd09New.lng.toFixed(14)}
+      </span>
+      <div class="actions">
+        <button class="btn btn-danger btn-sm" onclick="removePoint(${i})">&#10006;</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateDistanceSelects() {
+  const from = document.getElementById('dist-from');
+  const to = document.getElementById('dist-to');
+  const opts = savedPoints.length === 0
+    ? '<option value="">請先新增座標點</option>'
+    : savedPoints.map((p, i) => `<option value="${i}">${p.name}</option>`).join('');
+  from.innerHTML = opts;
+  to.innerHTML = opts;
+  if (savedPoints.length >= 2) {
+    to.selectedIndex = 1;
+  }
+}
+
+// --- 距離計算 ---
+function calcDistance() {
+  const fi = parseInt(document.getElementById('dist-from').value);
+  const ti = parseInt(document.getElementById('dist-to').value);
+
+  if (isNaN(fi) || isNaN(ti)) {
+    alert('請先新增至少兩個座標點');
+    return;
+  }
+
+  const pFrom = savedPoints[fi];
+  const pTo = savedPoints[ti];
+
+  // 使用 BD09 原邏輯座標計算距離
+  const distBd = haversineDistance(pFrom.bd09.lat, pFrom.bd09.lng, pTo.bd09.lat, pTo.bd09.lng);
+  // 使用 BD09 新邏輯座標計算距離
+  const distBdNew = haversineDistance(pFrom.bd09New.lat, pFrom.bd09New.lng, pTo.bd09New.lat, pTo.bd09New.lng);
+  // 使用 WGS84 座標計算距離（供參考比較）
+  const distWgs = haversineDistance(pFrom.wgs84.lat, pFrom.wgs84.lng, pTo.wgs84.lat, pTo.wgs84.lng);
+
+  document.getElementById('dist-value').textContent = formatDistance(distBdNew);
+  document.getElementById('dist-details').innerHTML = `
+    <table class="comparison-table">
+      <tr><th>項目</th><th>原邏輯</th><th>新邏輯 (Java)</th></tr>
+      <tr><td>起點</td><td colspan="2"><strong>${pFrom.name}</strong></td></tr>
+      <tr>
+        <td>起點 BD09</td>
+        <td>${pFrom.bd09.lat.toFixed(14)}, ${pFrom.bd09.lng.toFixed(14)}</td>
+        <td>${pFrom.bd09New.lat.toFixed(14)}, ${pFrom.bd09New.lng.toFixed(14)}</td>
+      </tr>
+      <tr><td>終點</td><td colspan="2"><strong>${pTo.name}</strong></td></tr>
+      <tr>
+        <td>終點 BD09</td>
+        <td>${pTo.bd09.lat.toFixed(14)}, ${pTo.bd09.lng.toFixed(14)}</td>
+        <td>${pTo.bd09New.lat.toFixed(14)}, ${pTo.bd09New.lng.toFixed(14)}</td>
+      </tr>
+      <tr>
+        <td><strong>BD09 距離</strong></td>
+        <td><strong>${formatDistance(distBd)}</strong></td>
+        <td><strong>${formatDistance(distBdNew)}</strong></td>
+      </tr>
+      <tr>
+        <td>WGS84 距離</td>
+        <td colspan="2">${formatDistance(distWgs)}</td>
+      </tr>
+      <tr style="background:#fffbeb;">
+        <td>新舊 BD09 距離差</td>
+        <td colspan="2">${Math.abs(distBd - distBdNew).toFixed(4)} 公尺</td>
+      </tr>
+    </table>
+    <p class="accuracy-note" style="margin-top:8px;">
+      * 距離採用 Haversine 公式計算 (球面距離)<br>
+      * 主顯示距離使用新邏輯 (Java版) BD09 座標
+    </p>
+  `;
+  document.getElementById('dist-result').style.display = 'block';
+}
+</script>
+
+<footer style="text-align:center; padding:24px 0 12px; color:#94a3b8; font-size:0.75rem;">
+  Design by Ronghuei Peng with Claude Code's assistance.
+</footer>
+
+</body>
+</html>
