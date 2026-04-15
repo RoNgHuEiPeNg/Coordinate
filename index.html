@@ -1068,26 +1068,47 @@ function detectLocation() {
     return;
   }
 
+  // 輔助函數：安全地設置座標顯示
+  const setCoord = (id, value) => {
+    const el = document.getElementById(id);
+    if (!el) {
+      console.warn('找不到元素:', id);
+      return;
+    }
+    if (value === undefined || value === null || isNaN(value)) {
+      el.textContent = 'N/A';
+      return;
+    }
+    el.textContent = Number(value).toFixed(14);
+  };
+
   navigator.geolocation.getCurrentPosition(
     (pos) => {
-      const wgsLat = pos.coords.latitude;
-      const wgsLng = pos.coords.longitude;
-      const accuracy = pos.coords.accuracy;
+      try {
+        // 防禦性取值：有些 Chinese 瀏覽器可能回傳不同結構
+        const coords = pos.coords || pos;
+        const wgsLat = Number(coords.latitude);
+        const wgsLng = Number(coords.longitude);
+        const accuracy = Number(coords.accuracy) || 0;
 
-      // WGS84
-      document.getElementById('wgs-lat').textContent = wgsLat.toFixed(14);
-      document.getElementById('wgs-lng').textContent = wgsLng.toFixed(14);
+        if (isNaN(wgsLat) || isNaN(wgsLng)) {
+          throw new Error('瀏覽器回傳的座標無效 (lat=' + coords.latitude + ', lng=' + coords.longitude + ')');
+        }
+
+      // WGS84 顯示
+      setCoord('wgs-lat', wgsLat);
+      setCoord('wgs-lng', wgsLng);
 
       // === 原邏輯 ===
       // GCJ02
       const gcj = wgs84ToGcj02(wgsLat, wgsLng);
-      document.getElementById('gcj-lat').textContent = gcj.lat.toFixed(14);
-      document.getElementById('gcj-lng').textContent = gcj.lng.toFixed(14);
+      setCoord('gcj-lat', gcj.lat);
+      setCoord('gcj-lng', gcj.lng);
 
       // BD09
       const bd = wgs84ToBd09(wgsLat, wgsLng);
-      document.getElementById('bd-lat').textContent = bd.lat.toFixed(14);
-      document.getElementById('bd-lng').textContent = bd.lng.toFixed(14);
+      setCoord('bd-lat', bd.lat);
+      setCoord('bd-lng', bd.lng);
 
       // 驗證：BD09 反轉回 WGS84
       const wgsBack = bd09ToWgs84(bd.lat, bd.lng);
@@ -1095,12 +1116,12 @@ function detectLocation() {
 
       // === 新邏輯 (Java版) ===
       const gcjNew = j_wgs84togcj02(wgsLng, wgsLat);
-      document.getElementById('gcj-new-lat').textContent = gcjNew.lat.toFixed(14);
-      document.getElementById('gcj-new-lng').textContent = gcjNew.lng.toFixed(14);
+      setCoord('gcj-new-lat', gcjNew.lat);
+      setCoord('gcj-new-lng', gcjNew.lng);
 
       const bdNew = j_wgs84tobd09(wgsLng, wgsLat);
-      document.getElementById('bd-new-lat').textContent = bdNew.lat.toFixed(14);
-      document.getElementById('bd-new-lng').textContent = bdNew.lng.toFixed(14);
+      setCoord('bd-new-lat', bdNew.lat);
+      setCoord('bd-new-lng', bdNew.lng);
 
       const wgsBackNew = j_bd09towgs84(bdNew.lng, bdNew.lat);
       const diffNew = haversineDistance(wgsLat, wgsLng, wgsBackNew.lat, wgsBackNew.lng);
@@ -1167,12 +1188,17 @@ function detectLocation() {
 
       // 儲存最新位置
       window._lastDetectedWgs = { lat: wgsLat, lng: wgsLng };
+      } catch (e) {
+        console.error('偵測流程錯誤:', e);
+        statusEl.className = 'status-msg error';
+        statusEl.textContent = '偵測流程錯誤: ' + (e.message || e);
+      }
     },
     (err) => {
       statusEl.className = 'status-msg error';
       const msgs = {
         1: '使用者拒絕了定位權限。',
-        2: '無法取得位置資訊。',
+        2: '無法取得位置資訊 (可能因為：裝置 GPS 關閉、室內訊號弱、或瀏覽器限制)。',
         3: '定位超時，請重試。'
       };
       statusEl.textContent = msgs[err.code] || '定位失敗: ' + err.message;
